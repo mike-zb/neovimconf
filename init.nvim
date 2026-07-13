@@ -1,46 +1,215 @@
+let mapleader = " "
+
 :set number
 :set relativenumber
-:set tabstop=4
-:set shiftwidth=4
+:set tabstop=2
+:set shiftwidth=2
 :set smarttab
-:set softtabstop=4
+:set softtabstop=2
 :set mouse=a
+:set completeopt=menuone,noinsert,noselect
+:set termguicolors
+:set timeout
+:set timeoutlen=60000
+:syntax on
 
 call plug#begin('~/.config/nvim/plugged')
 
 " To remove a plugin, remove the line and use command :PlugClean
-Plug 'https://github.com/tpope/vim-surround' " surround with (), type ys, e.g. ysiw( transforms ' hello ' to ' ( hello ) '
-Plug 'https://github.com/vim-airline/vim-airline' " status bar
-Plug 'https://github.com/preservim/nerdtree' " for the left bar, ctrl t or f to open
-Plug 'https://github.com/tpope/vim-commentary' " for commentaries gcc & gc
-Plug 'https://github.com/rafi/awesome-vim-colorschemes' " Retro Scheme
-Plug 'https://github.com/ryanoasis/vim-devicons' " Developer Icons
-Plug 'https://github.com/tc50cal/vim-terminal' " Vim Terminal
-Plug 'https://github.com/terryma/vim-multiple-cursors' " CTRL + N for multiple cursors
-Plug 'https://github.com/preservim/tagbar' " Tagbar for code navigation
-Plug 'https://github.com/neoclide/coc.nvim'  " Auto Completion
-Plug 'https://github.com/neovim/nvim-lspconfig' 
-Plug 'https://github.com/scalameta/nvim-metals'
+Plug 'tpope/vim-surround' " surround with (), type ys, e.g. ysiw( transforms ' hello ' to ' ( hello ) '
+Plug 'vim-airline/vim-airline' " status bar
+Plug 'nvim-tree/nvim-tree.lua'
+Plug 'nvim-tree/nvim-web-devicons'
+" Plug 'nvim-tree/nvim-web-devicons', { 'tag': 'v0.100' }
+Plug 'tpope/vim-commentary' " for commentaries gcc & gc
+Plug 'rafi/awesome-vim-colorschemes' " Retro Scheme
+Plug 'terryma/vim-multiple-cursors' " CTRL + N for multiple cursors
+Plug 'preservim/tagbar' " Tagbar for code navigation
+Plug 'neoclide/coc.nvim', {'branch': 'release'}  " Auto Completion
+Plug 'akinsho/bufferline.nvim', { 'tag': '*' }
+Plug 'nvim-lua/plenary.nvim'
+Plug 'nvim-telescope/telescope.nvim'
+Plug 'lewis6991/gitsigns.nvim'
+
+" Color schemes
+Plug 'catppuccin/nvim', { 'as': 'catppuccin' }
+Plug 'navarasu/onedark.nvim', { 'as': 'onedark' }
 
 call plug#end()
 
-nnoremap <C-f> :NERDTreeFocus<CR>
-nnoremap <C-n> :NERDTree<CR>
-nnoremap <C-t> :NERDTreeToggle<CR>
+:colorscheme onedark
+
+xnoremap p "_dP
+xnoremap P p
+xnoremap Y "*y
+
+" Tree config
+function! ToggleTree()
+  if bufwinnr("NvimTree") == -1
+    NvimTreeOpen
+    NvimTreeFocus
+  elseif &filetype ==# "NvimTree"
+    for w in range(1, winnr('$'))
+      if getbufvar(winbufnr(w), '&filetype') !=# 'NvimTree'
+        execute w . 'wincmd w'
+        return
+      endif
+    endfor
+  else
+    NvimTreeFocus
+  endif
+endfunction
+
+nnoremap <silent><S-Tab> :call ToggleTree()<CR>
+
+" Terminal
+let g:term_buf = -1
+let g:term_win = -1
+let g:prev_win = -1
+
+function! ToggleTerminal()
+  " Return to previous window when closing terminal
+  if bufwinnr(g:term_buf) != -1
+    let l:win = bufwinnr(g:term_buf)
+    execute l:win . "wincmd c"
+    if g:prev_win != -1 && g:prev_win <= winnr('$')
+      execute g:prev_win . "wincmd w"
+    endif
+    return
+  endif
+  " Save current window before opening terminal
+  let g:prev_win = winnr()
+  " reuse terminal buffer if already exists
+  if bufexists(g:term_buf)
+    botright split
+    resize 12
+    execute "buffer " . g:term_buf
+  else
+    " Create terminal
+    botright split
+    resize 12
+    terminal
+    let g:term_buf = bufnr("%")
+  endif
+endfunction
+
+nnoremap <silent><C-k> :call ToggleTerminal()<CR>
+tnoremap <silent><C-k> <C-\><C-n>:call ToggleTerminal()<CR>
+tnoremap <silent><Esc> <C-\><C-n>
+
+" CoC
+inoremap <expr> <TAB>
+      \ coc#pum#visible() ? coc#pum#next(1) :
+      \ CheckBackspace() ? "\<Tab>" :
+      \ coc#refresh()
+
+inoremap <expr> <S-TAB>
+      \ coc#pum#visible() ? coc#pum#prev(1) :
+      \ "\<C-h>"
+
+inoremap <silent><expr> <CR>
+      \ coc#pum#visible() ? coc#pum#confirm() :
+      \ "\<CR>"
+
+function! CheckBackspace() abort
+  let col = col('.') - 1
+  return !col || getline('.')[col - 1]  =~# '\s'
+endfunction
+
+" Use <c-space> to trigger completion
+inoremap <silent><expr> <c-space> coc#refresh()
+
+nmap <silent> gd <Plug>(coc-definition)
+nmap <silent> gy <Plug>(coc-type-definition)
+nmap <silent> gi <Plug>(coc-implementation)
+nmap <silent> gr <Plug>(coc-references)
+
+nnoremap <silent> K :call CocActionAsync('doHover')<CR>
+nmap <leader>rn <Plug>(coc-rename)
+nmap <leader>ca <Plug>(coc-codeaction)
+
 
 nmap <F8> :TagbarToggle<CR>
 
 :set completeopt-=preview " For No Previews
 
-:colorscheme onedark
+lua << EOF
+require("bufferline").setup({
+  options = {
+    mode = "buffers",
+    diagnostics = "coc",
+    offsets = {
+      {
+        filetype = "NvimTree",
+        text = "Files",
+        text_align = "left",
+        separator = true,
+      },
+    },
+  },
+})
+EOF
 
-let g:NERDTreeDirArrowExpandable="+"
-let g:NERDTreeDirArrowCollapsible="~"
+lua << EOF
+require("gitsigns").setup({
+	current_line_blame = true,
+  signs = {
+    add          = { text = "+" },
+    change       = { text = "~" },
+    delete       = { text = "_" },
+    topdelete    = { text = "‾" },
+    changedelete = { text = "~" },
+  },
+})
+EOF
 
-" Start NERDTree and put the cursor back in the other window.
-autocmd VimEnter * NERDTreeFocus | wincmd p
+lua << EOF
+require("nvim-web-devicons").setup({
+	color_icons = true,
+	default = true,
+	strict = true,
+})
+EOF
 
-" Exit Vim if NERDTree is the only window remaining in the only tab.
-autocmd BufEnter * if tabpagenr('$') == 1 && winnr('$') == 1 && exists('b:NERDTree') && b:NERDTree.isTabTree() | quit | endif
 
+lua << EOF
+require("nvim-tree").setup({
+  on_attach = function(bufnr)
+    local api = require("nvim-tree.api")
 
+    api.config.mappings.default_on_attach(bufnr)
+
+    vim.keymap.del("n", "<Tab>", { buffer = bufnr })
+    vim.keymap.set("n", "<S-Tab>", ":call ToggleTree()<CR>", { buffer = bufnr, silent = true })
+  end,
+})
+EOF
+
+function! OpenTreeNoFocus()
+  NvimTreeOpen
+  wincmd l
+endfunction
+
+augroup OpenTreeOnStart
+  autocmd!
+  autocmd VimEnter * call OpenTreeNoFocus()
+augroup END
+
+" Buffer/tabs config
+nnoremap <silent> <Tab> :b#<CR>
+nnoremap <silent> <leader>l :BufferLineCycleNext<CR>
+nnoremap <silent> <leader>h :BufferLineCyclePrev<CR>
+
+nnoremap <leader>wq :w \| bd<CR>
+nnoremap <leader>q  :bd<CR>
+nnoremap <leader>q! :bd!<CR>
+
+" Telescope config (find)
+nnoremap <leader>f :Telescope find_files<CR>
+nnoremap <leader>F :Telescope live_grep<CR>
+vnoremap <leader>f :<C-u>Telescope grep_string<CR>
+
+" Gitsigns config
+nnoremap <leader>gc :Gitsigns preview_hunk<CR>
+nnoremap <leader>gb :Gitsigns toggle_current_line_blame<CR>
+nnoremap <leader>gd :Gitsigns diffthis HEAD<CR>
